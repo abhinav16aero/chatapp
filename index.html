@@ -1,111 +1,112 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Simple Chat App</title>
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js"></script>
-</head>
-<body>
-  <h1>Simple Chat App</h1>
+  <head>
+    <title>Real-time Chat App</title>
+    <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
+    <style>
+      body {
+        margin: 0;
+        font-family: sans-serif;
+      }
 
-  <div id="user-info" style="display: none;">
-    <p id="user-email"></p>
-    <button id="sign-out">Sign Out</button>
-  </div>
+      form {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        display: flex;
+        box-sizing: border-box;
+        padding: 0.25rem;
+      }
 
-  <div id="chat" style="display: none;">
-    <ul id="messages"></ul>
-    <form id="chat-form" action="">
-      <input id="input-message" autocomplete="off" />
+      form input {
+        border: 0;
+        padding: 0.5rem;
+        width: 100%;
+        outline: 0;
+        margin-right: 0.5rem;
+        border-radius: 0.25rem;
+        background: #ccc;
+      }
+
+      form button {
+        width: 6rem;
+        background-color: #1b8c00;
+        color: white;
+        border: none;
+        padding: 0.5rem;
+        cursor: pointer;
+        border-radius: 0.25rem;
+        text-transform: uppercase;
+      }
+
+      form button:hover {
+        background-color: #166d01;
+      }
+
+      .messages {
+        margin: 0;
+        padding: 0;
+        margin-bottom: 3rem;
+      }
+
+      .messages li {
+        padding: 0.5rem;
+      }
+
+      .messages li:nth-child(odd) {
+        background: #eee;
+      }
+    </style>
+  </head>
+  <body>
+    <ul class="messages"></ul>
+    <form>
+      <input type="text" class="input" autocomplete="off" autofocus />
       <button>Send</button>
     </form>
-  </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.2/socket.io.js">socket.io</script>
+    <script>
+      const form = document.querySelector("form");
+      const input = document.querySelector(".input");
+      const messages = document.querySelector(".messages");
+      const username = prompt("Please enter a nickname: ", "");
+      const socket = io.connect('http://localhost:3000');
 
-  <script>
-    // Replace this with your own Firebase SDK configuration
-    
-    // Import the functions you need from the SDKs you need
+      form.addEventListener("submit", function(event) {
+        event.preventDefault();
 
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+        addMessage(username + ": " + input.value);
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyA6Aqfj4NXt-lobpEq_IvYvvPRxQel7350",
-  authDomain: "chatappmercor.firebaseapp.com",
-  projectId: "chatappmercor",
-  storageBucket: "chatappmercor.appspot.com",
-  messagingSenderId: "609072945068",
-  appId: "1:609072945068:web:0991346851ac8fe7758c09",
-  measurementId: "G-5YQ6M0DK7W"
-};
-
-// Initialize Firebase
-// const app = initializeApp(firebaseConfig);
-// const analytics = getAnalytics(app);
-
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-
-    // Google Sign-In
-    const signInWithGoogle = () => {
-      const provider = new firebase.auth.GoogleAuthProvider();
-      auth.signInWithPopup(provider);
-    };
-
-    // Sign out
-    const signOut = () => {
-      auth.signOut();
-    };
-
-    auth.onAuthStateChanged((user) => {
-      if (user) {
-        $('#user-email').text(user.email);
-        $('#user-info').show();
-        $('#chat').show();
-        $('#sign-out').click(signOut);
-        $('#input-message').focus();
-        initChat(user);
-      } else {
-        $('#user-info').hide();
-        $('#chat').hide();
-        $('#messages').empty();
-        socket.close();
-      }
-    });
-
-    const initChat = (user) => {
-      user.getIdToken().then((token) => {
-        const socket = io({
-          query: {
-            token: token,
-          },
+        socket.emit("chat_message", {
+          text: input.value
         });
 
-        $('form').submit((e) => {
-          e.preventDefault();
-          const message = $('#input-message').val();
-          if (message.trim() !== '') {
-            socket.emit('chat message', message);
-            $('#input-message').val('');
-          }
-          return false;
-        });
+        input.value = "";
+        return false;
+      }, false);
 
-        socket.on('chat message', (data) => {
-          const { message, sender } = data;
-          $('#messages').append($('<li>').text(`${sender}: ${message}`));
-        });
+      socket.on("chat_message", function(data) {
+        addMessage(data.username + ": " + data.text);
       });
-    };
-  </script>
 
-  <button onclick="signInWithGoogle()">Sign in with Google</button>
-</body>
+      socket.on("user_join", function(data) {
+        addMessage(data + " just joined the chat!");
+      });
+
+      socket.on("user_leave", function(data) {
+        addMessage(data + " has left the chat.");
+      });
+
+      addMessage("You have joined the chat as '" + username  + "'.");
+      socket.emit("user_join", username);
+
+      function addMessage(message) {
+        const li = document.createElement("li");
+        li.innerHTML = message;
+        messages.appendChild(li);
+        window.scrollTo(0, document.body.scrollHeight);
+      }
+    </script>
+  </body>
 </html>
